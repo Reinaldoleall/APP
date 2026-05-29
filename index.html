@@ -75,19 +75,68 @@
             background: #ffffff;
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         }
-        .slide-in-right {
-            animation: slideInRight 0.3s forwards;
+        
+        /* Botão Flutuante */
+        .fab-btn {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: #3b82f6;
+            color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            z-index: 50;
+            transition: all 0.3s;
+            cursor: pointer;
         }
-        .slide-out-right {
-            animation: slideOutRight 0.3s forwards;
+        .fab-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.5);
         }
-        @keyframes slideInRight {
-            from { transform: translateX(100%); }
-            to { transform: translateX(0); }
+        .fab-btn:active {
+            transform: scale(0.95);
         }
-        @keyframes slideOutRight {
-            from { transform: translateX(0); }
-            to { transform: translateX(100%); }
+        @media (min-width: 481px) {
+            .fab-btn {
+                position: absolute;
+                right: calc(50% - 240px + 20px);
+            }
+        }
+        
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        .modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            width: 90%;
+            max-width: 400px;
+            transform: translateY(20px);
+            transition: transform 0.3s;
+        }
+        .modal-overlay.active .modal-content {
+            transform: translateY(0);
         }
     </style>
 </head>
@@ -180,37 +229,12 @@
             <!-- ABA 2: Banco de Dados -->
             <main id="tabDatabase" class="main-content p-4 absolute inset-0 bg-gray-50 hidden translate-x-full">
                 
-                <div class="bg-white p-4 rounded-xl shadow-sm mb-6 border border-blue-100">
-                    <div class="flex items-center gap-3 mb-2">
-                        <div class="bg-blue-100 p-2 rounded-full text-blue-600">
-                            <i class="fas fa-cloud-upload-alt"></i>
-                        </div>
-                        <h2 class="font-bold text-gray-800">Banco Compartilhado</h2>
-                    </div>
-                    <p class="text-xs text-gray-500 mb-4 leading-relaxed">
-                        Cadastre novos produtos aqui. Eles ficarão disponíveis para todos os funcionários preencherem relatórios mais rápido.
-                    </p>
-
-                    <form id="formNewProduct" class="space-y-3">
-                        <div>
-                            <input type="text" id="newCategory" class="input-float uppercase" placeholder="Categoria (ex: Geladeiras, MWO...)" required list="categoryList">
-                            <datalist id="categoryList"></datalist>
-                        </div>
-                        <div>
-                            <input type="text" id="newProductName" class="input-float uppercase" placeholder="Modelo do Produto (ex: BT41X)" required>
-                        </div>
-                        <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-blue-700 active:transform active:scale-95 transition-all">
-                            <i class="fas fa-save mr-2"></i> Salvar no Banco
-                        </button>
-                    </form>
-                </div>
-
                 <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
                     <div class="bg-gray-100 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
                         <h3 class="font-bold text-gray-700 text-sm">Produtos Cadastrados</h3>
                         <span id="totalProductsBadge" class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full font-medium">0</span>
                     </div>
-                    <div id="dbList" class="divide-y divide-gray-100 max-h-[350px] overflow-y-auto">
+                    <div id="dbList" class="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
                         <!-- Lista de produtos do banco -->
                     </div>
                 </div>
@@ -269,6 +293,40 @@
                 <span class="text-[10px] font-medium uppercase">Banco</span>
             </button>
         </nav>
+
+        <!-- BOTÃO FLUTUANTE + -->
+        <button id="fabAddProduct" class="fab-btn">
+            <i class="fas fa-plus"></i>
+        </button>
+
+        <!-- MODAL PARA ADICIONAR PRODUTO -->
+        <div id="modalAddProduct" class="modal-overlay">
+            <div class="modal-content">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-lg font-bold text-gray-800">
+                        <i class="fas fa-box mr-2 text-blue-600"></i>Novo Produto
+                    </h2>
+                    <button id="btnCloseModal" class="text-gray-400 hover:text-gray-600 p-2">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <form id="formNewProduct" class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                        <input type="text" id="newCategory" class="input-float uppercase" placeholder="Ex: GELADEIRAS, MWO, TVs..." required list="categoryList">
+                        <datalist id="categoryList"></datalist>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Modelo do Produto</label>
+                        <input type="text" id="newProductName" class="input-float uppercase" placeholder="Ex: BT41X, RT53..." required>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-blue-700 active:transform active:scale-95 transition-all">
+                        <i class="fas fa-save mr-2"></i> Salvar no Banco
+                    </button>
+                </form>
+            </div>
+        </div>
 
         <!-- Toast Notification -->
         <div id="toast" class="toast">Mensagem aqui</div>
@@ -339,6 +397,11 @@
         const elBtnCopyText = document.getElementById('btnCopyText');
         const elBtnShareNative = document.getElementById('btnShareNative');
 
+        // Elementos do Modal e FAB
+        const elFabAddProduct = document.getElementById('fabAddProduct');
+        const elModalAddProduct = document.getElementById('modalAddProduct');
+        const elBtnCloseModal = document.getElementById('btnCloseModal');
+
         // 1. Funções de Utilidade
         function showToast(msg) {
             elToast.textContent = msg;
@@ -371,7 +434,28 @@
             e.target.value = formatted;
         });
 
-        // 2. Autenticação e Conexão Firebase
+        // 2. Controles do Modal
+        elFabAddProduct.addEventListener('click', () => {
+            elModalAddProduct.classList.add('active');
+            elNewCategory.focus();
+        });
+
+        elBtnCloseModal.addEventListener('click', () => {
+            elModalAddProduct.classList.remove('active');
+            elNewCategory.value = '';
+            elNewProductName.value = '';
+        });
+
+        // Fechar modal clicando fora
+        elModalAddProduct.addEventListener('click', (e) => {
+            if (e.target === elModalAddProduct) {
+                elModalAddProduct.classList.remove('active');
+                elNewCategory.value = '';
+                elNewProductName.value = '';
+            }
+        });
+
+        // 3. Autenticação e Conexão Firebase
         async function initApp() {
             try {
                 await signInAnonymously(auth);
@@ -394,7 +478,7 @@
             }
         });
 
-        // 3. Gerenciamento do Banco de Dados Compartilhado
+        // 4. Gerenciamento do Banco de Dados Compartilhado
         function loadSharedDatabase() {
             if (!user) return;
 
@@ -431,7 +515,7 @@
             });
         }
 
-        // 4. ADICIONAR PRODUTO AO BANCO - FUNÇÃO PRINCIPAL RESTAURADA
+        // 5. ADICIONAR PRODUTO AO BANCO
         async function addProductToDb(e) {
             e.preventDefault();
             
@@ -470,8 +554,11 @@
                 });
 
                 showToast("✅ Produto salvo com sucesso!");
+                
+                // Limpar e fechar modal
+                elNewCategory.value = '';
                 elNewProductName.value = '';
-                elNewProductName.focus();
+                elModalAddProduct.classList.remove('active');
                 
             } catch (error) {
                 console.error("❌ Erro ao salvar:", error);
@@ -483,7 +570,7 @@
             }
         }
 
-        // 5. DELETAR PRODUTO DO BANCO
+        // 6. DELETAR PRODUTO DO BANCO
         async function deleteProductFromDb(id) {
             if (!confirm("Remover este produto do banco compartilhado?")) return;
             
@@ -500,7 +587,7 @@
         // Event Listener do formulário
         elFormNewProduct.addEventListener('submit', addProductToDb);
 
-        // 6. ATUALIZAR INTERFACE DO BANCO
+        // 7. ATUALIZAR INTERFACE DO BANCO
         function updateProductUI() {
             // Extrair categorias únicas
             const categories = [...new Set(globalProducts.map(p => p.category))];
@@ -526,7 +613,13 @@
             
             // Renderizar lista do banco
             if (globalProducts.length === 0) {
-                elDbList.innerHTML = '<div class="p-4 text-center text-sm text-gray-400">Banco vazio. Adicione o primeiro produto!</div>';
+                elDbList.innerHTML = `
+                    <div class="p-8 text-center">
+                        <i class="fas fa-database text-4xl text-gray-300 mb-3"></i>
+                        <p class="text-sm text-gray-400">Banco vazio</p>
+                        <p class="text-xs text-gray-400 mt-1">Clique no botão <span class="text-blue-500 font-bold">+</span> para adicionar produtos</p>
+                    </div>
+                `;
             } else {
                 let html = '';
                 let lastCat = '';
@@ -550,7 +643,7 @@
             }
         }
 
-        // Função global para deletar (mantém onclick funcionando)
+        // Função global para deletar
         window.delProd = deleteProductFromDb;
 
         // Atualizar produtos quando categoria mudar
@@ -571,7 +664,7 @@
             elProductSelect.disabled = false;
         }
 
-        // 7. LÓGICA DO RELATÓRIO LOCAL
+        // 8. LÓGICA DO RELATÓRIO LOCAL
         elBtnAddItem.addEventListener('click', () => {
             const category = elCategorySelect.value;
             const name = elProductSelect.value;
@@ -669,7 +762,7 @@
             }
         });
 
-        // 8. PREVIEW E COMPARTILHAMENTO
+        // 9. PREVIEW E COMPARTILHAMENTO
         elBtnGenerateReport.addEventListener('click', () => {
             const store = elStoreName.value.trim().toUpperCase();
             const id = elStoreId.value.trim();
@@ -740,7 +833,7 @@
             }
         });
 
-        // 9. NAVEGAÇÃO DE ABAS
+        // 10. NAVEGAÇÃO DE ABAS
         elNavBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 const target = btn.dataset.tab;
@@ -771,6 +864,7 @@
 
                     elHeaderTitle.textContent = 'Novo Relatório';
                     elBtnLimpar.style.display = 'block';
+                    elFabAddProduct.style.display = 'flex';
                 } else {
                     elTabReport.classList.remove('translate-x-0');
                     elTabReport.classList.add('-translate-x-full');
@@ -787,6 +881,7 @@
 
                     elHeaderTitle.textContent = 'Gerenciar Banco';
                     elBtnLimpar.style.display = 'none';
+                    elFabAddProduct.style.display = 'flex';
                 }
             });
         });
@@ -802,4 +897,4 @@
 
     </script>
 </body>
-    </html>
+</html>
