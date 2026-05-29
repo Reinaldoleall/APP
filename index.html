@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DEPÓSITO DA REDE</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f3f4f6;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            overflow: hidden;
+        }
+        .app-container {
+            max-width: 480px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 80px;
+            height: 100%;
+        }
+        .main-content::-webkit-scrollbar {
+            display: none;
+        }
+        .main-content {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .toast {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(55, 65, 81, 0.95);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 9999px;
+            font-size: 14px;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 1000;
+            white-space: nowrap;
+        }
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+        @media (min-width: 481px) {
+            .toast {
+                position: absolute;
+            }
+        }
+        .input-float {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            width: 100%;
+            transition: all 0.2s;
+            background: #f9fafb;
+        }
+        .input-float:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container" id="appContainer">
+        
+        <!-- Header -->
+        <header class="bg-blue-600 text-white p-4 shadow-md z-40 flex items-center justify-between shrink-0">
+            <h1 class="text-xl font-bold tracking-tight" id="headerTitle">Novo Relatório</h1>
+            <button id="btnLimpar" class="p-2 text-blue-100 hover:text-white transition-colors" title="Limpar Tudo">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        </header>
+
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="absolute inset-0 bg-white/80 z-50 flex flex-col items-center justify-center">
+            <i class="fas fa-circle-notch fa-spin text-4xl text-blue-600 mb-4"></i>
+            <p class="text-gray-600 font-medium">Conectando ao banco...</p>
+        </div>
+
+        <!-- Conteúdo Rolável Principal -->
+        <div class="relative flex-1 overflow-hidden bg-gray-50">
+            
+            <!-- ABA 1: Relatório -->
+            <main id="tabReport" class="main-content p-4 block absolute inset-0 bg-gray-50">
+                
+                <div class="bg-white p-4 rounded-xl shadow-sm mb-6 border border-gray-100">
+                    <h2 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Dados Gerais</h2>
+                    
+                    <div class="space-y-3">
+                        <input type="text" id="storeName" class="input-float font-bold uppercase" placeholder="Nome da Loja (NOME DA REDE)">
+                        <div class="flex gap-3">
+                            <input type="text" id="storeId" class="input-float flex-1" placeholder="ID (ID DA LOJA)">
+                            <input type="text" id="dateInput" class="input-float flex-1 text-gray-600" placeholder="Data" readonly>
+                        </div>
+                        <input type="text" id="consultantName" class="input-float" placeholder="Nome do Consultor">
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-xl shadow-sm mb-6 border border-gray-100">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Lançar Produto</h2>
+                        <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium" id="dbStatusBadge">Carregando DB...</span>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <select id="categorySelect" class="input-float text-gray-700">
+                            <option value="">Selecione uma Categoria...</option>
+                        </select>
+
+                        <select id="productSelect" class="input-float text-gray-700" disabled>
+                            <option value="">Primeiro selecione a categoria...</option>
+                        </select>
+
+                        <div class="flex gap-3">
+                            <div class="w-1/3">
+                                <label class="block text-xs text-gray-500 ml-1 mb-1">Qtd</label>
+                                <input type="number" id="qtyInput" class="input-float" placeholder="0" min="0">
+                            </div>
+                            <div class="w-2/3">
+                                <label class="block text-xs text-gray-500 ml-1 mb-1">Preço (R$)</label>
+                                <input type="text" id="priceInput" class="input-float" placeholder="0,00">
+                            </div>
+                        </div>
+
+                        <button id="btnAddItem" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-blue-700 active:transform active:scale-95 transition-all">
+                            <i class="fas fa-plus mr-2"></i> Adicionar ao Relatório
+                        </button>
+                    </div>
+                </div>
+
+                <div id="reportListContainer" class="space-y-4 pb-4">
+                    <div class="text-center text-gray-400 py-8 text-sm">
+                        Nenhum produto adicionado ainda.
+                    </div>
+                </div>
+
+                <button id="btnGenerateReport" class="w-full bg-green-500 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-green-600 active:transform active:scale-95 transition-all mb-8 hidden">
+                    <i class="fas fa-file-invoice mr-2"></i> Gerar Relatório Final
+                </button>
+
+            </main>
+
+            <!-- ABA 2: Banco de Dados -->
+            <main id="tabDatabase" class="main-content p-4 absolute inset-0 bg-gray-50 hidden">
+                
+                <div class="bg-white p-4 rounded-xl shadow-sm mb-6 border border-blue-100">
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="bg-blue-100 p-2 rounded-full text-blue-600">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        </div>
+                        <h2 class="font-bold text-gray-800">Banco Compartilhado</h2>
+                    </div>
+                    <p class="text-xs text-gray-500 mb-4 leading-relaxed">
+                        Cadastre novos produtos aqui. Eles ficarão disponíveis para todos os funcionários preencherem relatórios mais rápido.
+                    </p>
+
+                    <form id="formNewProduct" class="space-y-3">
+                        <div>
+                            <input type="text" id="newCategory" class="input-float uppercase" placeholder="Categoria (ex: Geladeiras, MWO...)" required list="categoryList">
+                            <datalist id="categoryList"></datalist>
+                        </div>
+                        <div>
+                            <input type="text" id="newProductName" class="input-float uppercase" placeholder="Modelo do Produto (ex: BT41X)" required>
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl shadow-md hover:bg-blue-700 active:transform active:scale-95 transition-all">
+                            <i class="fas fa-save mr-2"></i> Salvar no Banco
+                        </button>
+                    </form>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+                    <div class="bg-gray-100 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                        <h3 class="font-bold text-gray-700 text-sm">Produtos Cadastrados</h3>
+                        <span id="totalProductsBadge" class="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full font-medium">0</span>
+                    </div>
+                    <div id="dbList" class="divide-y divide-gray-100 max-h-[350px] overflow-y-auto">
+                    </div>
+                </div>
+
+            </main>
+
+            <!-- TELA: PREVIEW DO RELATÓRIO -->
+            <div id="previewScreen" class="absolute inset-0 bg-white z-30 flex flex-col transform translate-x-full transition-transform duration-300">
+                
+                <div class="bg-gray-800 text-white p-4 shadow-md flex items-center shrink-0">
+                    <button id="btnClosePreview" class="p-2 mr-2 text-gray-300 hover:text-white transition-colors">
+                        <i class="fas fa-arrow-left text-xl"></i>
+                    </button>
+                    <h2 class="text-lg font-bold">Pré-visualização</h2>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-4 bg-gray-50">
+                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <i class="fas fa-info-circle text-yellow-400"></i>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-yellow-700">
+                                    Assim que o texto será enviado. Revise os dados abaixo.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-inner">
+                        <textarea id="previewTextArea" class="w-full h-96 resize-none outline-none text-sm font-mono text-gray-800 bg-transparent" readonly></textarea>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-white border-t border-gray-200 flex gap-3 pb-safe shrink-0">
+                    <button id="btnCopyText" class="flex-1 bg-gray-100 text-gray-700 font-bold py-3 px-4 rounded-xl border border-gray-300 flex items-center justify-center hover:bg-gray-200 active:scale-95 transition-all">
+                        <i class="far fa-copy mr-2"></i> Copiar
+                    </button>
+                    <button id="btnShareNative" class="flex-[2] bg-green-500 text-white font-bold py-3 px-4 rounded-xl shadow-md flex items-center justify-center hover:bg-green-600 active:scale-95 transition-all">
+                        <i class="fas fa-share-alt mr-2"></i> Compartilhar
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="bg-white border-t border-gray-200 flex justify-around items-center h-16 shrink-0 w-full z-20 pb-safe relative">
+            <button class="nav-btn flex-1 flex flex-col items-center justify-center h-full text-blue-600 transition-colors" data-tab="tabReport">
+                <i class="fas fa-file-alt text-xl mb-1"></i>
+                <span class="text-[10px] font-medium uppercase">Relatório</span>
+            </button>
+            <button class="nav-btn flex-1 flex flex-col items-center justify-center h-full text-gray-400 hover:text-gray-600 transition-colors" data-tab="tabDatabase">
+                <i class="fas fa-database text-xl mb-1"></i>
+                <span class="text-[10px] font-medium uppercase">Banco</span>
+            </button>
+        </nav>
+
+        <!-- Toast Notification -->
+        <div id="toast" class="toast">Mensagem aqui</div>
+
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyD8FxHqt1g2V-mmureRPQyYe6QCuRSieGI",
+            authDomain: "marketplaceconnect-af26d.firebaseapp.com",
+            databaseURL: "https://marketplaceconnect-af26d-default-rtdb.firebaseio.com",
+            projectId: "marketplaceconnect-af26d",
+            storageBucket: "marketplaceconnect-af26d.firebasestorage.app",
+            messagingSenderId: "768552546759",
+            appId: "1:768552546759:web:4367fc4a161ecf90c469e2",
+            measurementId: "G-7HHR78MHDP"
+        };
+
+        // Inicialização do Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Estado da Aplicação
+        let globalProducts = [];
+        let reportItems = [];
+        let unsubscribeDb = null;
+        let generatedReportText = "";
+
+        // Elementos DOM
+        const elTabReport = document.getElementById('tabReport');
+        const elTabDatabase = document.getElementById('tabDatabase');
+        const elNavBtns = document.querySelectorAll('.nav-btn');
+        const elHeaderTitle = document.getElementById('headerTitle');
+        const elLoading = document.getElementById('loadingOverlay');
+        const elToast = document.getElementById('toast');
+        const elBtnLimpar = document.getElementById('btnLimpar');
+        const elBtnGenerateReport = document.getElementById('btnGenerateReport');
+        
+        const elStoreName = document.getElementById('storeName');
+        const elStoreId = document.getElementById('storeId');
+        const elDateInput = document.getElementById('dateInput');
+        const elConsultantName = document.getElementById('consultantName');
+        const elCategorySelect = document.getElementById('categorySelect');
+        const elProductSelect = document.getElementById('productSelect');
+        const elQtyInput = document.getElementById('qtyInput');
+        const elPriceInput = document.getElementById('priceInput');
+        const elBtnAddItem = document.getElementById('btnAddItem');
+        const elReportListContainer = document.getElementById('reportListContainer');
+        const elDbStatusBadge = document.getElementById('dbStatusBadge');
+
+        const elFormNewProduct = document.getElementById('formNewProduct');
+        const elNewCategory = document.getElementById('newCategory');
+        const elNewProductName = document.getElementById('newProductName');
+        const elCategoryList = document.getElementById('categoryList');
+        const elDbList = document.getElementById('dbList');
+        const elTotalProductsBadge = document.getElementById('totalProductsBadge');
+
+        const elPreviewScreen = document.getElementById('previewScreen');
+        const elBtnClosePreview = document.getElementById('btnClosePreview');
+        const elPreviewTextArea = document.getElementById('previewTextArea');
+        const elBtnCopyText = document.getElementById('btnCopyText');
+        const elBtnShareNative = document.getElementById('btnShareNative');
+
+        function showToast(msg) {
+            elToast.textContent = msg;
+            elToast.classList.add('show');
+            setTimeout(() => elToast.classList.remove('show'), 3000);
+        }
+
+        function getTodayDate() {
+            const today = new Date();
+            const dd = String(today.getDate()).padStart(2, '0');
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const yyyy = today.getFullYear();
+            return dd + '/' + mm + '/' + yyyy;
+        }
+
+        elDateInput.value = getTodayDate();
+        
+        elPriceInput.addEventListener('input', function(e) {
+            let val = e.target.value;
+            let num = val.replace(/\D/g, '');
+            if(num === '') {
+                e.target.value = '';
+                return;
+            }
+            let formatted = (parseInt(num) / 100).toFixed(2);
+            formatted = formatted.replace('.', ',');
+            formatted = formatted.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+            e.target.value = formatted;
+        });
+
+        // Inicializar com autenticação anônima
+        signInAnonymously(auth)
+            .then(() => {
+                console.log('Autenticado anonimamente');
+            })
+            .catch((error) => {
+                console.error('Erro na autenticação:', error);
+                showToast('Erro ao conectar. Verifique sua conexão.');
+                elLoading.classList.add('hidden');
+            });
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                console.log('Usuário autenticado:', user.uid);
+                loadSharedDatabase();
+            } else {
+                console.log('Usuário não autenticado');
+                if(unsubscribeDb) {
+                    unsubscribeDb();
+                    unsubscribeDb = null;
+                }
+                elLoading.classList.add('hidden');
+            }
+        });
+
+        function loadSharedDatabase() {
+            const productsRef = collection(db, 'products');
+            
+            if (unsubscribeDb) {
+                unsubscribeDb();
+            }
+            
+            unsubscribeDb = onSnapshot(productsRef, (snapshot) => {
+                globalProducts = [];
+                snapshot.forEach((doc) => {
+                    globalProducts.push({ id: doc.id, ...doc.data() });
+                });
+
+                globalProducts.sort((a, b) => {
+                    if (a.category && b.category) {
+                        return a.category.localeCompare(b.category) || a.name.localeCompare(b.name);
+                    }
+                    return 0;
+                });
+                
+                updateProductUI();
+                
+                elLoading.classList.add('hidden');
+                elDbStatusBadge.textContent = `${globalProducts.length} itens`;
+                elDbStatusBadge.classList.remove('bg-blue-100', 'text-blue-700');
+                elDbStatusBadge.classList.add('bg-green-100', 'text-green-700');
+
+            }, (error) => {
+                console.error("Erro ao carregar banco:", error);
+                showToast("Erro ao carregar banco de dados.");
+                elLoading.classList.add('hidden');
+            });
+        }
+
+        async function addProductToDb(e) {
+            e.preventDefault();
+            
+            const cat = elNewCategory.value.trim().toUpperCase();
+            const name = elNewProductName.value.trim().toUpperCase();
+
+            if (!cat || !name) {
+                showToast("Preencha categoria e nome.");
+                return;
+            }
+
+            const exists = globalProducts.some(p => p.category === cat && p.name === name);
+            if (exists) {
+                showToast("Produto já existe no banco!");
+                return;
+            }
+
+            try {
+                const btn = elFormNewProduct.querySelector('button');
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Salvando...';
+
+                const productsRef = collection(db, 'products');
+                await addDoc(productsRef, {
+                    category: cat,
+                    name: name,
+                    timestamp: serverTimestamp()
+                });
+
+                showToast("Produto salvo com sucesso!");
+                elNewProductName.value = '';
+                elNewProductName.focus();
+                
+            } catch (error) {
+                console.error('Erro ao salvar:', error);
+                showToast("Erro ao salvar produto. Tente novamente.");
+            } finally {
+                const btn = elFormNewProduct.querySelector('button');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save mr-2"></i> Salvar no Banco';
+            }
+        }
+
+        async function deleteProductFromDb(id) {
+            if (!confirm("Remover este produto do banco compartilhado?")) return;
+            
+            try {
+                const docRef = doc(db, 'products', id);
+                await deleteDoc(docRef);
+                showToast("Produto removido.");
+            } catch(e) {
+                console.error('Erro ao remover:', e);
+                showToast("Erro ao remover produto.");
+            }
+        }
+
+        elFormNewProduct.addEventListener('submit', addProductToDb);
+
+        function updateProductUI() {
+            const categories = [...new Set(globalProducts.map(p => p.category))];
+            
+            elCategoryList.innerHTML = categories.map(c => `<option value="${c}">`).join('');
+            
+            const currentCat = elCategorySelect.value;
+            elCategorySelect.innerHTML = '<option value="">Selecione a Categoria...</option>' + 
+                categories.map(c => `<option value="${c}">${c}</option>`).join('');
+            
+            if(categories.includes(currentCat)) {
+                elCategorySelect.value = currentCat;
+            }
+
+            updateProductSelect();
+
+            elTotalProductsBadge.textContent = globalProducts.length;
+            
+            if (globalProducts.length === 0) {
+                elDbList.innerHTML = '<div class="p-4 text-center text-sm text-gray-400">Banco vazio. Adicione o primeiro produto!</div>';
+            } else {
+                let html = '';
+                let lastCat = '';
+                globalProducts.forEach(p => {
+                    if (p.category !== lastCat) {
+                        html += `<div class="bg-gray-50 px-4 py-1 text-xs font-bold text-gray-500 uppercase mt-2">${p.category}</div>`;
+                        lastCat = p.category;
+                    }
+                    html += `
+                        <div class="px-4 py-3 flex justify-between items-center bg-white">
+                            <span class="text-sm font-medium text-gray-700">${p.name}</span>
+                            <button class="text-red-400 hover:text-red-600 p-1 delete-product-btn" data-id="${p.id}">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    `;
+                });
+                elDbList.innerHTML = html;
+                
+                // Adicionar event listeners aos botões de deletar
+                document.querySelectorAll('.delete-product-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        deleteProductFromDb(this.dataset.id);
+                    });
+                });
+            }
+        }
+
+        elCategorySelect.addEventListener('change', updateProductSelect);
+
+        function updateProductSelect() {
+            const cat = elCategorySelect.value;
+            if (!cat) {
+                elProductSelect.innerHTML = '<option value="">Primeiro selecione a categoria...</option>';
+                elProductSelect.disabled = true;
+                return;
+            }
+
+            const prods = globalProducts.filter(p => p.category === cat);
+            elProductSelect.innerHTML = '<option value="">Selecione o Modelo...</option>' + 
+                prods.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+            elProductSelect.disabled = false;
+        }
+
+        elBtnAddItem.addEventListener('click', () => {
+            const category = elCategorySelect.value;
+            const name = elProductSelect.value;
+            const qty = elQtyInput.value;
+            const price = elPriceInput.value;
+
+            if (!category || !name) {
+                showToast("Selecione Categoria e Produto.");
+                return;
+            }
+            if (!qty || qty === "" || parseInt(qty) <= 0) {
+                showToast("Informe uma quantidade válida.");
+                return;
+            }
+
+            const priceVal = price ? `R$ ${price}` : 'R$ 0,00';
+
+            reportItems.push({
+                id: Date.now().toString(),
+                category: category,
+                name: name,
+                qty: parseInt(qty),
+                price: priceVal
+            });
+
+            elQtyInput.value = '';
+            elPriceInput.value = '';
+            elProductSelect.value = '';
+            
+            showToast("Item Adicionado!");
+            renderReportList();
+        });
+
+        function renderReportList() {
+            if (reportItems.length === 0) {
+                elReportListContainer.innerHTML = '<div class="text-center text-gray-400 py-8 text-sm">Nenhum produto adicionado ainda.</div>';
+                elBtnGenerateReport.classList.add('hidden');
+                return;
+            }
+
+            elBtnGenerateReport.classList.remove('hidden');
+            
+            const grouped = {};
+            reportItems.forEach(item => {
+                if (!grouped[item.category]) grouped[item.category] = [];
+                grouped[item.category].push(item);
+            });
+
+            let html = '';
+            for (const cat in grouped) {
+                html += `
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-3">
+                        <div class="bg-gray-100 px-3 py-2 border-b border-gray-200">
+                            <h3 class="font-bold text-gray-700 text-sm uppercase">*${cat}*</h3>
+                        </div>
+                        <div class="divide-y divide-gray-50">
+                `;
+                
+                grouped[cat].forEach(item => {
+                    html += `
+                        <div class="px-3 py-2 flex justify-between items-center group">
+                            <div class="flex-1">
+                                <span class="font-medium text-gray-800 text-sm">${item.name}</span>
+                                <span class="text-gray-500 text-sm mx-1">=</span>
+                                <span class="font-bold text-blue-600 text-sm">${item.qty}</span>
+                                <span class="text-gray-600 text-xs ml-2">${item.price}</span>
+                            </div>
+                            <button class="text-gray-300 hover:text-red-500 p-2 ml-2 transition-colors remove-item-btn" data-id="${item.id}">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    `;
+                });
+                html += `</div></div>`;
+            }
+
+            elReportListContainer.innerHTML = html;
+            
+            // Adicionar event listeners aos botões de remover
+            document.querySelectorAll('.remove-item-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    reportItems = reportItems.filter(item => item.id !== this.dataset.id);
+                    renderReportList();
+                    showToast("Item removido");
+                });
+            });
+        }
+
+        elBtnLimpar.addEventListener('click', () => {
+            if(reportItems.length === 0) {
+                showToast("Nada para limpar");
+                return;
+            }
+            if(confirm("Deseja apagar todos os itens do relatório atual?")) {
+                reportItems = [];
+                elStoreName.value = '';
+                elStoreId.value = '';
+                elConsultantName.value = '';
+                renderReportList();
+                showToast("Relatório limpo.");
+            }
+        });
+
+        elBtnGenerateReport.addEventListener('click', () => {
+            const store = elStoreName.value.trim().toUpperCase();
+            const id = elStoreId.value.trim();
+            const consultant = elConsultantName.value.trim();
+            const date = elDateInput.value;
+
+            if (!store) {
+                showToast("Nome da loja é obrigatório.");
+                return;
+            }
+            
+            if (reportItems.length === 0) {
+                showToast("Adicione pelo menos um produto.");
+                return;
+            }
+
+            let text = `*${store}*\n`;
+            if (id) text += `ID: ${id}\n`;
+            if (consultant) text += `CONSULTOR: ${consultant}\n`;
+            text += `Data: ${date}.\n\n`;
+
+            const grouped = {};
+            reportItems.forEach(item => {
+                if (!grouped[item.category]) grouped[item.category] = [];
+                grouped[item.category].push(item);
+            });
+
+            for (const cat in grouped) {
+                text += `*${cat}*\n\n`;
+                grouped[cat].forEach(item => {
+                    text += `${item.name} = ${item.qty} ${item.price}\n`;
+                });
+                text += `\n`;
+            }
+
+            generatedReportText = text.trim();
+            elPreviewTextArea.value = generatedReportText;
+            elPreviewScreen.classList.remove('translate-x-full');
+        });
+
+        elBtnClosePreview.addEventListener('click', () => {
+            elPreviewScreen.classList.add('translate-x-full');
+        });
+
+        elBtnCopyText.addEventListener('click', () => {
+            elPreviewTextArea.select();
+            document.execCommand('copy');
+            window.getSelection().removeAllRanges();
+            showToast("Texto copiado!");
+        });
+
+        elBtnShareNative.addEventListener('click', async () => {
+            const store = elStoreName.value.trim().toUpperCase() || 'Relatório';
+            
+            if (navigator.share) {
+                try {
+                    await navigator.share({
+                        title: `Relatório - ${store}`,
+                        text: generatedReportText
+                    });
+                } catch (error) {
+                    console.log('Compartilhamento cancelado ou erro:', error);
+                }
+            } else {
+                showToast("Abrindo WhatsApp...");
+                const encodedText = encodeURIComponent(generatedReportText);
+                const waUrl = `https://api.whatsapp.com/send?text=${encodedText}`;
+                window.open(waUrl, '_blank');
+            }
+        });
+
+        // Navegação de Abas
+        elNavBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = btn.dataset.tab;
+                
+                elNavBtns.forEach(b => {
+                    b.classList.remove('text-blue-600');
+                    b.classList.add('text-gray-400');
+                });
+                
+                btn.classList.add('text-blue-600');
+                btn.classList.remove('text-gray-400');
+
+                if (target === 'tabReport') {
+                    elTabDatabase.classList.add('hidden');
+                    elTabReport.classList.remove('hidden');
+                    elHeaderTitle.textContent = 'Novo Relatório';
+                    elBtnLimpar.style.display = 'block';
+                } else {
+                    elTabReport.classList.add('hidden');
+                    elTabDatabase.classList.remove('hidden');
+                    elHeaderTitle.textContent = 'Gerenciar Banco';
+                    elBtnLimpar.style.display = 'none';
+                }
+            });
+        });
+
+        // Inicialização
+        renderReportList();
+        console.log('App iniciado com sucesso!');
+    </script>
+</body>
+</html>
