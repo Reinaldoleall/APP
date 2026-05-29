@@ -170,7 +170,7 @@
                     </div>
                 </div>
 
-                <!-- Botão Gerar (oculto inicialmente) -->
+                <!-- Botão Gerar -->
                 <button id="btnGenerateReport" class="w-full bg-green-500 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-green-600 active:transform active:scale-95 transition-all mb-8 hidden">
                     <i class="fas fa-file-invoice mr-2"></i> Gerar Relatório Final
                 </button>
@@ -278,9 +278,9 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, deleteDoc, doc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Configuração do Firebase - USANDO SUA CONFIGURAÇÃO ORIGINAL
+        // SUA CONFIGURAÇÃO ORIGINAL DO FIREBASE
         const firebaseConfig = {
             apiKey: "AIzaSyD8FxHqt1g2V-mmureRPQyYe6QCuRSieGI",
             authDomain: "marketplaceconnect-af26d.firebaseapp.com",
@@ -293,18 +293,9 @@
         };
 
         // Inicialização do Firebase
-        let app;
-        let auth;
-        let db;
-        
-        try {
-            app = initializeApp(firebaseConfig);
-            auth = getAuth(app);
-            db = getFirestore(app);
-            console.log('✅ Firebase inicializado com sucesso!');
-        } catch (error) {
-            console.error('❌ Erro ao inicializar Firebase:', error);
-        }
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
         // Estado da Aplicação
         let user = null;
@@ -348,7 +339,7 @@
         const elBtnCopyText = document.getElementById('btnCopyText');
         const elBtnShareNative = document.getElementById('btnShareNative');
 
-        // Funções de Utilidade
+        // 1. Funções de Utilidade
         function showToast(msg) {
             elToast.textContent = msg;
             elToast.classList.add('show');
@@ -380,71 +371,43 @@
             e.target.value = formatted;
         });
 
-        // 1. Autenticação e Conexão Firebase
-        async function initAuth() {
+        // 2. Autenticação e Conexão Firebase
+        async function initApp() {
             try {
-                console.log('🔄 Tentando autenticar...');
                 await signInAnonymously(auth);
-                console.log('✅ Autenticado anonimamente');
-            } catch (error) {
-                console.error('❌ Erro na autenticação:', error);
-                
-                // Tratamento específico para erros comuns
-                if (error.code === 'auth/operation-not-allowed') {
-                    showToast('Erro: Autenticação anônima não habilitada no console do Firebase');
-                } else if (error.code === 'auth/network-request-failed') {
-                    showToast('Erro de rede. Verifique sua conexão.');
-                } else {
-                    showToast('Erro ao conectar: ' + error.message);
-                }
-                
+                console.log('✅ Autenticado com sucesso!');
+            } catch (err) {
+                console.error("❌ Erro de Auth:", err);
+                showToast("Erro ao conectar ao servidor. Verifique sua internet.");
                 elLoading.classList.add('hidden');
             }
         }
 
-        // Observador de estado de autenticação
         onAuthStateChanged(auth, (currentUser) => {
-            if (currentUser) {
-                user = currentUser;
-                console.log('👤 Usuário logado:', user.uid);
+            user = currentUser;
+            if (user) {
+                console.log('👤 Usuário conectado:', user.uid);
                 loadSharedDatabase();
             } else {
-                console.log('👤 Nenhum usuário logado');
-                user = null;
-                if(unsubscribeDb) {
-                    unsubscribeDb();
-                    unsubscribeDb = null;
-                }
+                console.log('👤 Usuário desconectado');
+                if(unsubscribeDb) unsubscribeDb();
             }
         });
 
-        // 2. Carregar Banco de Dados Compartilhado
+        // 3. Gerenciamento do Banco de Dados Compartilhado
         function loadSharedDatabase() {
-            if (!user) {
-                console.log('⚠️ Sem usuário autenticado para carregar DB');
-                return;
-            }
+            if (!user) return;
 
             console.log('📂 Carregando banco de dados...');
-            
-            // Estrutura simplificada mas mantendo a ideia original
             const productsRef = collection(db, 'products');
-            const q = query(productsRef);
             
-            if (unsubscribeDb) {
-                unsubscribeDb();
-            }
-            
-            unsubscribeDb = onSnapshot(q, (snapshot) => {
+            unsubscribeDb = onSnapshot(productsRef, (snapshot) => {
                 globalProducts = [];
                 snapshot.forEach((doc) => {
-                    globalProducts.push({ 
-                        id: doc.id, 
-                        ...doc.data() 
-                    });
+                    globalProducts.push({ id: doc.id, ...doc.data() });
                 });
 
-                // Ordenar produtos
+                // Ordenar por categoria e nome
                 globalProducts.sort((a, b) => {
                     if (a.category && b.category) {
                         return a.category.localeCompare(b.category) || 
@@ -458,26 +421,17 @@
                 
                 elLoading.classList.add('hidden');
                 elDbStatusBadge.textContent = `${globalProducts.length} itens no DB`;
-                elDbStatusBadge.classList.remove('bg-blue-100', 'text-blue-700');
-                elDbStatusBadge.classList.add('bg-green-100', 'text-green-700');
+                elDbStatusBadge.classList.replace('bg-blue-100', 'bg-green-100');
+                elDbStatusBadge.classList.replace('text-blue-700', 'text-green-700');
 
             }, (error) => {
-                console.error("❌ Erro ao carregar banco:", error);
-                
-                // Mensagens de erro específicas
-                if (error.code === 'permission-denied') {
-                    showToast("Erro de permissão. Verifique as regras do Firestore.");
-                } else if (error.code === 'unavailable') {
-                    showToast("Serviço indisponível. Tente novamente.");
-                } else {
-                    showToast("Erro ao carregar banco de dados.");
-                }
-                
+                console.error("❌ Erro no DB:", error);
+                showToast("Erro ao carregar banco de dados. Tente recarregar a página.");
                 elLoading.classList.add('hidden');
             });
         }
 
-        // 3. Adicionar Produto ao Banco
+        // 4. ADICIONAR PRODUTO AO BANCO - FUNÇÃO PRINCIPAL RESTAURADA
         async function addProductToDb(e) {
             e.preventDefault();
             
@@ -494,11 +448,8 @@
                 return;
             }
 
-            // Verificar duplicata
-            const exists = globalProducts.some(p => 
-                p.category === cat && p.name === name
-            );
-            
+            // Verificar se já existe
+            const exists = globalProducts.some(p => p.category === cat && p.name === name);
             if (exists) {
                 showToast("Produto já existe no banco!");
                 return;
@@ -509,6 +460,7 @@
                 btn.disabled = true;
                 btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Salvando...';
 
+                // SALVAR NO FIRESTORE
                 const productsRef = collection(db, 'products');
                 await addDoc(productsRef, {
                     category: cat,
@@ -517,18 +469,13 @@
                     timestamp: serverTimestamp()
                 });
 
-                showToast("Produto salvo!");
+                showToast("✅ Produto salvo com sucesso!");
                 elNewProductName.value = '';
                 elNewProductName.focus();
                 
             } catch (error) {
-                console.error('❌ Erro ao salvar:', error);
-                
-                if (error.code === 'permission-denied') {
-                    showToast("Sem permissão para adicionar. Verifique as regras.");
-                } else {
-                    showToast("Erro ao salvar produto.");
-                }
+                console.error("❌ Erro ao salvar:", error);
+                showToast("Erro ao salvar produto. Tente novamente.");
             } finally {
                 const btn = elFormNewProduct.querySelector('button');
                 btn.disabled = false;
@@ -536,7 +483,7 @@
             }
         }
 
-        // 4. Deletar Produto do Banco
+        // 5. DELETAR PRODUTO DO BANCO
         async function deleteProductFromDb(id) {
             if (!confirm("Remover este produto do banco compartilhado?")) return;
             
@@ -544,26 +491,21 @@
                 const docRef = doc(db, 'products', id);
                 await deleteDoc(docRef);
                 showToast("Produto removido.");
-            } catch(error) {
-                console.error('❌ Erro ao remover:', error);
-                
-                if (error.code === 'permission-denied') {
-                    showToast("Sem permissão para remover.");
-                } else {
-                    showToast("Erro ao remover produto.");
-                }
+            } catch(e) {
+                console.error("❌ Erro ao remover:", e);
+                showToast("Erro ao remover produto.");
             }
         }
 
-        // Event Listeners
+        // Event Listener do formulário
         elFormNewProduct.addEventListener('submit', addProductToDb);
 
-        // 5. Atualizar Interface do Banco
+        // 6. ATUALIZAR INTERFACE DO BANCO
         function updateProductUI() {
-            // Atualizar categorias únicas
+            // Extrair categorias únicas
             const categories = [...new Set(globalProducts.map(p => p.category))];
             
-            // Atualizar datalist
+            // Atualizar datalist para autocomplete
             elCategoryList.innerHTML = categories.map(c => `<option value="${c}">`).join('');
             
             // Atualizar select de categorias
@@ -571,6 +513,7 @@
             elCategorySelect.innerHTML = '<option value="">Selecione a Categoria...</option>' + 
                 categories.map(c => `<option value="${c}">${c}</option>`).join('');
             
+            // Manter categoria selecionada se ainda existir
             if(categories.includes(currentCat)) {
                 elCategorySelect.value = currentCat;
             }
@@ -578,7 +521,7 @@
             // Atualizar select de produtos
             updateProductSelect();
 
-            // Atualizar badge
+            // Atualizar contador
             elTotalProductsBadge.textContent = globalProducts.length;
             
             // Renderizar lista do banco
@@ -594,9 +537,9 @@
                         lastCat = p.category;
                     }
                     html += `
-                        <div class="px-4 py-3 flex justify-between items-center bg-white hover:bg-gray-50">
+                        <div class="px-4 py-3 flex justify-between items-center bg-white hover:bg-gray-50 transition-colors">
                             <span class="text-sm font-medium text-gray-700">${p.name}</span>
-                            <button class="text-red-400 hover:text-red-600 p-1 transition-colors" onclick="window.deleteProduct('${p.id}')">
+                            <button class="text-red-400 hover:text-red-600 p-1 transition-colors" onclick="window.delProd('${p.id}')">
                                 <i class="fas fa-trash-alt"></i>
                             </button>
                         </div>
@@ -607,10 +550,10 @@
             }
         }
 
-        // Função global para deletar (mantendo compatibilidade com onclick)
-        window.deleteProduct = deleteProductFromDb;
+        // Função global para deletar (mantém onclick funcionando)
+        window.delProd = deleteProductFromDb;
 
-        // Atualizar produtos baseado na categoria selecionada
+        // Atualizar produtos quando categoria mudar
         elCategorySelect.addEventListener('change', updateProductSelect);
 
         function updateProductSelect() {
@@ -628,7 +571,7 @@
             elProductSelect.disabled = false;
         }
 
-        // 6. Lógica do Relatório Local
+        // 7. LÓGICA DO RELATÓRIO LOCAL
         elBtnAddItem.addEventListener('click', () => {
             const category = elCategorySelect.value;
             const name = elProductSelect.value;
@@ -696,7 +639,7 @@
                                 <span class="font-bold text-blue-600 text-sm">${item.qty}</span>
                                 <span class="text-gray-600 text-xs ml-2">${item.price}</span>
                             </div>
-                            <button class="text-gray-300 hover:text-red-500 p-2 ml-2 transition-colors" onclick="window.removeItem('${item.id}')">
+                            <button class="text-gray-300 hover:text-red-500 p-2 ml-2 transition-colors" onclick="window.remItem('${item.id}')">
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
@@ -709,19 +652,13 @@
         }
 
         // Função global para remover item
-        window.removeItem = function(id) {
+        window.remItem = function(id) {
             reportItems = reportItems.filter(item => item.id !== id);
             renderReportList();
-            showToast("Item removido");
         };
 
         // Limpar tudo
         elBtnLimpar.addEventListener('click', () => {
-            if(reportItems.length === 0 && !elStoreName.value && !elConsultantName.value) {
-                showToast("Nada para limpar");
-                return;
-            }
-            
             if(confirm("Deseja apagar todos os itens do relatório atual?")) {
                 reportItems = [];
                 elStoreName.value = '';
@@ -732,24 +669,17 @@
             }
         });
 
-        // 7. Preview e Compartilhamento
+        // 8. PREVIEW E COMPARTILHAMENTO
         elBtnGenerateReport.addEventListener('click', () => {
             const store = elStoreName.value.trim().toUpperCase();
             const id = elStoreId.value.trim();
             const consultant = elConsultantName.value.trim();
             const date = elDateInput.value;
 
-            if (!store) {
-                showToast("Nome da loja é obrigatório.");
-                return;
-            }
-            
-            if (reportItems.length === 0) {
-                showToast("Adicione pelo menos um produto.");
-                return;
-            }
+            if (!store) return showToast("Nome da loja é obrigatório.");
+            if (reportItems.length === 0) return showToast("Adicione pelo menos um produto.");
 
-            // Gerar texto formatado
+            // Montar texto formatado
             let text = `*${store}*\n`;
             if (id) text += `ID: ${id}\n`;
             if (consultant) text += `CONSULTOR: ${consultant}\n`;
@@ -772,7 +702,7 @@
             generatedReportText = text.trim();
             elPreviewTextArea.value = generatedReportText;
             
-            // Mostrar preview com animação
+            // Mostrar tela de preview
             elPreviewScreen.classList.remove('translate-x-full');
         });
 
@@ -810,12 +740,12 @@
             }
         });
 
-        // 8. Navegação entre Abas
+        // 9. NAVEGAÇÃO DE ABAS
         elNavBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 const target = btn.dataset.tab;
                 
-                // Atualizar estilos dos botões
+                // Atualizar estilos
                 elNavBtns.forEach(b => {
                     b.classList.remove('text-blue-600');
                     b.classList.add('text-gray-400');
@@ -824,7 +754,7 @@
                 btn.classList.add('text-blue-600');
                 btn.classList.remove('text-gray-400');
 
-                // Transição entre abas
+                // Transições
                 if (target === 'tabReport') {
                     elTabDatabase.classList.add('translate-x-full');
                     elTabDatabase.classList.remove('translate-x-0');
@@ -865,20 +795,11 @@
         elTabReport.classList.add('transition-transform', 'duration-300', 'translate-x-0');
         elTabDatabase.classList.add('transition-transform', 'duration-300', 'translate-x-full', 'hidden');
 
-        // Iniciar aplicação
-        console.log('🚀 Iniciando aplicação...');
-        initAuth();
+        // INICIAR APLICAÇÃO
+        console.log('🚀 Iniciando Depósito da Rede...');
+        initApp();
         renderReportList();
-        
-        // Tratamento de erros global
-        window.addEventListener('error', function(e) {
-            console.error('Erro global:', e.error);
-        });
-        
-        window.addEventListener('unhandledrejection', function(e) {
-            console.error('Promise rejeitada:', e.reason);
-        });
 
     </script>
 </body>
-</html>
+    </html>
